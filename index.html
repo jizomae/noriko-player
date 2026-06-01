@@ -689,13 +689,24 @@
 
     function getNextIndex() {
       if (!tracks.length) return -1;
+
+      // 1曲だけの場合も、LOOPがONなら同じ曲を再スタートする。
       if (tracks.length === 1) return loopMode ? currentIndex : -1;
+
       if (shuffleMode) {
         let candidate = currentIndex;
-        while (candidate === currentIndex) candidate = Math.floor(Math.random() * tracks.length);
+        let guard = 0;
+        while (candidate === currentIndex && guard < 20) {
+          candidate = Math.floor(Math.random() * tracks.length);
+          guard++;
+        }
         return candidate;
       }
-      if (currentIndex + 1 < tracks.length) return currentIndex + 1;
+
+      const next = currentIndex + 1;
+      if (next < tracks.length) return next;
+
+      // ここが通常再生時の最後→先頭ループ。
       return loopMode ? 0 : -1;
     }
 
@@ -737,6 +748,10 @@
 
       nextGain.gain.linearRampToValueAtTime(1, now + mixSeconds);
       nextSource.start(0, 0);
+
+      nextSource.onended = () => {
+        if (isPlaying && !crossfadeStarted) skipToNext(false);
+      };
 
       eyebrowEl.textContent = 'MIXING NEXT UP';
       statusEl.textContent = `クロスフェード中: ${nextTrack.title} / ${mixSeconds.toFixed(1)}秒`;
