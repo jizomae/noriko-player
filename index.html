@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DJ NORIKO AI DJ LIVE Player</title>
+
+  <!-- MP3タグ読み取り用 -->
+  <script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"></script>
+
+  <style>
+    :root {
+      --red: #ff1d2d;
+      --red-dark: #9b0711;
+      --white: #fff;
+      --glass: rgba(255,255,255,0.18);
+      --glass-strong: rgba(255,255,255,0.34);
+      --shadow: rgba(0,0,0,0.6);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #050505;
+      color: var(--white);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow: hidden;
+    }
+
+    #bgVideo {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #000;
+      z-index: 0;
+    }
+
+    .vignette {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at center, rgba(0,0,0,0.05), rgba(0,0,0,0.78)),
+        linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0.05) 45%, rgba(0,0,0,0.35));
+    }
+
+    .app {
+      position: relative;
+      z-index: 2;
+      min-height: 100vh;
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .brand {
+      text-shadow: 0 3px 18px var(--shadow);
+    }
+
+    .brand .label {
+      font-size: 13px;
+      letter-spacing: 0.28em;
+      opacity: 0.82;
+    }
+
+    .brand h1 {
+      margin: 5px 0 0;
+      font-size: clamp(26px, 4vw, 54px);
+      line-height: 0.95;
+      letter-spacing: 0.04em;
+      color: var(--red);
+      -webkit-text-stroke: 1.2px white;
+      text-shadow: 0 3px 0 var(--red-dark), 0 8px 20px rgba(0,0,0,0.55);
+    }
+
+    .setup {
+      max-width: 430px;
+      background: rgba(0,0,0,0.48);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 22px;
+      padding: 16px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 14px 36px rgba(0,0,0,0.35);
+    }
+
+    .setup-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .file-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.14);
+      cursor: pointer;
+      transition: transform .16s ease, background .16s ease;
+      font-weight: 800;
+    }
+
+    .file-label:hover { transform: translateY(-1px); background: rgba(255,255,255,0.16); }
+    .file-label small { opacity: 0.72; font-weight: 600; }
+    input[type="file"] { display: none; }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 18px;
+      font-size: 15px;
+      font-weight: 900;
+      cursor: pointer;
+      color: white;
+      background: linear-gradient(135deg, #ff1d2d, #a80012);
+      box-shadow: 0 8px 24px rgba(255,29,45,0.28);
+    }
+
+    button.secondary {
+      background: rgba(255,255,255,0.15);
+      box-shadow: none;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin-top: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+      opacity: 0.82;
+    }
+
+    .now-panel {
+      display: grid;
+      grid-template-columns: 128px minmax(0, 1fr);
+      align-items: center;
+      gap: 22px;
+      width: min(980px, calc(100vw - 56px));
+      margin: 0 auto 8px;
+      padding: 18px 22px;
+      border-radius: 26px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.18), rgba(255,255,255,0.36));
+      border: 1px solid rgba(255,255,255,0.34);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 18px 46px rgba(0,0,0,0.42);
+    }
+
+    .artwork {
+      width: 128px;
+      height: 128px;
+      border-radius: 8px;
+      object-fit: cover;
+      background: linear-gradient(135deg, #211, #500);
+      box-shadow: 0 12px 26px rgba(0,0,0,0.55);
+    }
+
+    .track-info { min-width: 0; }
+
+    .eyebrow {
+      font-weight: 900;
+      letter-spacing: .18em;
+      font-size: 12px;
+      opacity: 0.78;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.55);
+    }
+
+    .title {
+      margin-top: 2px;
+      font-size: clamp(28px, 4.4vw, 56px);
+      line-height: 1;
+      font-weight: 1000;
+      color: var(--red);
+      -webkit-text-stroke: 1.1px #fff;
+      text-shadow: 0 3px 0 var(--red-dark), 0 8px 20px rgba(0,0,0,0.55);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .artist {
+      margin-top: 8px;
+      font-size: clamp(18px, 2.3vw, 30px);
+      font-weight: 1000;
+      letter-spacing: .04em;
+      color: #fff;
+      text-shadow: 0 3px 12px rgba(0,0,0,0.75);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .progress-wrap {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: 54px 1fr 54px;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 800;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+    }
+
+    .bar {
+      height: 8px;
+      background: rgba(255,255,255,0.34);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .fill {
+      height: 100%;
+      width: 0%;
+      background: white;
+      border-radius: 999px;
+    }
+
+    .next {
+      margin-top: 10px;
+      font-size: 15px;
+      font-weight: 800;
+      color: rgba(255,255,255,0.9);
+      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .playlist {
+      position: fixed;
+      right: 28px;
+      bottom: 190px;
+      z-index: 3;
+      width: min(380px, calc(100vw - 56px));
+      max-height: 38vh;
+      overflow: auto;
+      border-radius: 20px;
+      background: rgba(0,0,0,0.44);
+      border: 1px solid rgba(255,255,255,0.16);
+      backdrop-filter: blur(10px);
+      padding: 10px;
+      display: none;
+    }
+
+    .playlist.show { display: block; }
+
+    .playlist-item {
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.35;
+      border: 1px solid transparent;
+    }
+
+    .playlist-item.active {
+      background: rgba(255,29,45,0.24);
+      border-color: rgba(255,255,255,0.18);
+    }
+
+    .playlist-item strong { display: block; }
+    .playlist-item span { opacity: 0.72; }
+
+    @media (max-width: 760px) {
+      body { overflow: auto; }
+      .app { min-height: 100dvh; padding: 16px; }
+      .topbar { flex-direction: column; }
+      .setup { width: 100%; max-width: none; }
+      .now-panel {
+        width: 100%;
+        grid-template-columns: 86px minmax(0, 1fr);
+        gap: 14px;
+        padding: 14px;
+        margin-bottom: 0;
+      }
+      .artwork { width: 86px; height: 86px; }
+      .title { font-size: 28px; }
+      .artist { font-size: 17px; }
+      .playlist { right: 16px; bottom: 150px; }
+    }
+  </style>
+</head>
+<body>
+  <video id="bgVideo" src="djnorikoloop.mp4" muted loop playsinline></video>
+  <div class="vignette"></div>
+
+  <main class="app">
+    <section class="topbar">
+      <div class="brand">
+        <div class="label">AI DJ LIVE PLAYER</div>
+        <h1>DJ NORIKO</h1>
+      </div>
+
+      <div class="setup">
+        <div class="setup-row">
+          <label class="file-label">
+            <span>ループ動画を変更（任意）</span>
+            <small id="videoName">djnorikoloop.mp4</small>
+            <input id="videoInput" type="file" accept="video/mp4,video/webm,video/*" />
+          </label>
+
+          <label class="file-label">
+            <span>MP3を複数選択</span>
+            <small id="musicName">未選択</small>
+            <input id="musicInput" type="file" accept="audio/mpeg,audio/mp3,audio/*" multiple />
+          </label>
+        </div>
+
+        <div class="controls">
+          <button id="playBtn" disabled>PLAY</button>
+          <button id="nextBtn" class="secondary" disabled>NEXT</button>
+          <button id="listBtn" class="secondary" disabled>SETLIST</button>
+        </div>
+
+        <div class="status" id="status">
+          MP3を読み込んでください。背景動画は djnorikoloop.mp4 を自動使用します。必要なら任意のループ動画に変更できます。
+        </div>
+      </div>
+    </section>
+
+    <section class="now-panel">
+      <img id="artwork" class="artwork" alt="Artwork" />
+      <div class="track-info">
+        <div class="eyebrow" id="eyebrow">NOW WAITING</div>
+        <div class="title" id="title">DJ NORIKO PLAYER</div>
+        <div class="artist" id="artist">Load your MP4 & MP3 files</div>
+
+        <div class="progress-wrap">
+          <span id="currentTime">0:00</span>
+          <div class="bar"><div class="fill" id="progressFill"></div></div>
+          <span id="duration">0:00</span>
+        </div>
+
+        <div class="next" id="nextInfo">NEXT: -</div>
+      </div>
+    </section>
+  </main>
+
+  <aside class="playlist" id="playlist"></aside>
+
+  <script>
+    const videoInput = document.getElementById('videoInput');
+    const musicInput = document.getElementById('musicInput');
+    const videoName = document.getElementById('videoName');
+    const musicName = document.getElementById('musicName');
+    const bgVideo = document.getElementById('bgVideo');
+    const playBtn = document.getElementById('playBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const listBtn = document.getElementById('listBtn');
+    const statusEl = document.getElementById('status');
+    const artworkEl = document.getElementById('artwork');
+    const eyebrowEl = document.getElementById('eyebrow');
+    const titleEl = document.getElementById('title');
+    const artistEl = document.getElementById('artist');
+    const currentTimeEl = document.getElementById('currentTime');
+    const durationEl = document.getElementById('duration');
+    const progressFill = document.getElementById('progressFill');
+    const nextInfo = document.getElementById('nextInfo');
+    const playlistEl = document.getElementById('playlist');
+
+    let tracks = [];
+    let currentIndex = -1;
+    let audioContext = null;
+    let currentSource = null;
+    let currentGain = null;
+    let nextSource = null;
+    let nextGain = null;
+    let startedAt = 0;
+    let pausedAt = 0;
+    let isPlaying = false;
+    let rafId = null;
+    let crossfadeStarted = false;
+
+    const CROSSFADE_SECONDS = 7;
+
+    const defaultSvg = encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600">
+        <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#190004"/><stop offset="1" stop-color="#8c0010"/></linearGradient></defs>
+        <rect width="600" height="600" fill="url(#g)"/>
+        <circle cx="300" cy="260" r="128" fill="none" stroke="#fff" stroke-width="12" opacity="0.8"/>
+        <rect x="190" y="330" width="220" height="38" rx="19" fill="#fff" opacity="0.85"/>
+        <text x="300" y="455" font-size="42" text-anchor="middle" font-family="Arial" fill="#fff" font-weight="900">DJ NORIKO</text>
+      </svg>`);
+    artworkEl.src = `data:image/svg+xml;charset=utf-8,${defaultSvg}`;
+
+    // 公開時は index.html と同じ場所に djnorikoloop.mp4 を置く。
+    // ブラウザの自動再生制限を避けるため、初回操作後にも play() を呼ぶ。
+    bgVideo.play().catch(() => {});
+
+    videoInput.addEventListener('change', () => {
+      const file = videoInput.files[0];
+      if (!file) return;
+      bgVideo.src = URL.createObjectURL(file);
+      bgVideo.play().catch(() => {});
+      videoName.textContent = file.name;
+      updateReadyState();
+    });
+
+    musicInput.addEventListener('change', async () => {
+      const files = Array.from(musicInput.files || [])
+        .filter(file => file.type.includes('audio') || file.name.toLowerCase().endsWith('.mp3'));
+
+      if (!files.length) return;
+
+      musicName.textContent = `${files.length}曲`;
+      statusEl.textContent = 'MP3タグを読み込み中...';
+
+      tracks = await Promise.all(files.map((file, index) => readTrack(file, index)));
+      tracks.sort((a, b) => a.file.name.localeCompare(b.file.name, 'ja', { numeric: true }));
+
+      renderPlaylist();
+      currentIndex = tracks.length ? 0 : -1;
+      updateNowInfo(currentIndex);
+      updateReadyState();
+      statusEl.textContent = `${tracks.length}曲を読み込みました。PLAYで開始します。`;
+    });
+
+    playBtn.addEventListener('click', async () => {
+      if (!tracks.length) return;
+      bgVideo.play().catch(() => {});
+      if (!audioContext) audioContext = new AudioContext();
+      if (audioContext.state === 'suspended') await audioContext.resume();
+
+      if (isPlaying) {
+        pauseCurrent();
+      } else {
+        await playTrack(currentIndex < 0 ? 0 : currentIndex, pausedAt);
+      }
+    });
+
+    nextBtn.addEventListener('click', async () => {
+      if (!tracks.length) return;
+      await skipToNext();
+    });
+
+    listBtn.addEventListener('click', () => {
+      playlistEl.classList.toggle('show');
+    });
+
+    async function readTrack(file, index) {
+      const basic = {
+        file,
+        index,
+        title: file.name.replace(/\.mp3$/i, ''),
+        artist: 'Unknown Artist',
+        artwork: `data:image/svg+xml;charset=utf-8,${defaultSvg}`,
+        duration: 0,
+        buffer: null,
+      };
+
+      await new Promise(resolve => {
+        window.jsmediatags.read(file, {
+          onSuccess: tag => {
+            const tags = tag.tags || {};
+            basic.title = tags.title || basic.title;
+            basic.artist = tags.artist || basic.artist;
+
+            if (tags.picture) {
+              const { data, format } = tags.picture;
+              let binary = '';
+              for (let i = 0; i < data.length; i++) binary += String.fromCharCode(data[i]);
+              basic.artwork = `data:${format};base64,${window.btoa(binary)}`;
+            }
+            resolve();
+          },
+          onError: () => resolve()
+        });
+      });
+
+      return basic;
+    }
+
+    function updateReadyState() {
+      const ready = tracks.length > 0;
+      playBtn.disabled = !ready;
+      nextBtn.disabled = !ready;
+      listBtn.disabled = !ready;
+    }
+
+    async function getBuffer(track) {
+      if (track.buffer) return track.buffer;
+      const arrayBuffer = await track.file.arrayBuffer();
+      track.buffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+      track.duration = track.buffer.duration;
+      return track.buffer;
+    }
+
+    async function playTrack(index, offset = 0) {
+      stopSources();
+
+      currentIndex = normalizeIndex(index);
+      const track = tracks[currentIndex];
+      const buffer = await getBuffer(track);
+
+      currentSource = audioContext.createBufferSource();
+      currentGain = audioContext.createGain();
+      currentSource.buffer = buffer;
+      currentGain.gain.value = 1;
+      currentSource.connect(currentGain).connect(audioContext.destination);
+
+      startedAt = audioContext.currentTime - offset;
+      pausedAt = offset;
+      isPlaying = true;
+      crossfadeStarted = false;
+
+      currentSource.start(0, offset);
+      currentSource.onended = () => {
+        if (isPlaying && !crossfadeStarted) skipToNext();
+      };
+
+      bgVideo.play().catch(() => {});
+      playBtn.textContent = 'PAUSE';
+      updateNowInfo(currentIndex);
+      tick();
+    }
+
+    function pauseCurrent() {
+      if (!isPlaying) return;
+      pausedAt = Math.max(0, audioContext.currentTime - startedAt);
+      stopSources(false);
+      isPlaying = false;
+      playBtn.textContent = 'PLAY';
+      bgVideo.pause();
+      cancelAnimationFrame(rafId);
+      statusEl.textContent = '一時停止中。';
+    }
+
+    function stopSources(resetPause = true) {
+      [currentSource, nextSource].forEach(src => {
+        try { if (src) src.stop(); } catch(e) {}
+      });
+      currentSource = null;
+      nextSource = null;
+      currentGain = null;
+      nextGain = null;
+      if (resetPause) pausedAt = 0;
+      cancelAnimationFrame(rafId);
+    }
+
+    async function skipToNext() {
+      if (!tracks.length) return;
+      pausedAt = 0;
+      await playTrack(normalizeIndex(currentIndex + 1), 0);
+    }
+
+    async function startCrossfade() {
+      if (crossfadeStarted || tracks.length < 2) return;
+      crossfadeStarted = true;
+
+      const nextIndex = normalizeIndex(currentIndex + 1);
+      const nextTrack = tracks[nextIndex];
+      const nextBuffer = await getBuffer(nextTrack);
+
+      nextSource = audioContext.createBufferSource();
+      nextGain = audioContext.createGain();
+      nextSource.buffer = nextBuffer;
+      nextGain.gain.setValueAtTime(0, audioContext.currentTime);
+      nextSource.connect(nextGain).connect(audioContext.destination);
+
+      const now = audioContext.currentTime;
+      currentGain.gain.cancelScheduledValues(now);
+      currentGain.gain.setValueAtTime(currentGain.gain.value, now);
+      currentGain.gain.linearRampToValueAtTime(0, now + CROSSFADE_SECONDS);
+
+      nextGain.gain.linearRampToValueAtTime(1, now + CROSSFADE_SECONDS);
+      nextSource.start(0, 0);
+
+      eyebrowEl.textContent = 'MIXING NEXT UP';
+      statusEl.textContent = `クロスフェード中: ${nextTrack.title}`;
+
+      setTimeout(() => {
+        try { if (currentSource) currentSource.stop(); } catch(e) {}
+        currentSource = nextSource;
+        currentGain = nextGain;
+        nextSource = null;
+        nextGain = null;
+        currentIndex = nextIndex;
+        startedAt = audioContext.currentTime - CROSSFADE_SECONDS;
+        pausedAt = 0;
+        crossfadeStarted = false;
+        updateNowInfo(currentIndex);
+        renderPlaylist();
+      }, CROSSFADE_SECONDS * 1000);
+    }
+
+    function tick() {
+      if (!isPlaying || !tracks[currentIndex]) return;
+
+      const track = tracks[currentIndex];
+      const duration = track.duration || (track.buffer ? track.buffer.duration : 0);
+      const elapsed = Math.max(0, audioContext.currentTime - startedAt);
+      const remain = duration - elapsed;
+
+      currentTimeEl.textContent = formatTime(elapsed);
+      durationEl.textContent = formatTime(duration);
+      progressFill.style.width = duration ? `${Math.min(100, elapsed / duration * 100)}%` : '0%';
+
+      if (duration && remain <= CROSSFADE_SECONDS && remain > 0.2 && !crossfadeStarted) {
+        startCrossfade();
+      }
+
+      rafId = requestAnimationFrame(tick);
+    }
+
+    function updateNowInfo(index) {
+      const track = tracks[index];
+      if (!track) return;
+
+      artworkEl.src = track.artwork;
+      eyebrowEl.textContent = isPlaying ? 'NOW PLAYING' : 'READY TO PLAY';
+      titleEl.textContent = track.title;
+      artistEl.textContent = track.artist;
+      durationEl.textContent = formatTime(track.duration || 0);
+      currentTimeEl.textContent = formatTime(pausedAt || 0);
+      progressFill.style.width = '0%';
+
+      const next = tracks[normalizeIndex(index + 1)];
+      nextInfo.textContent = next && tracks.length > 1 ? `NEXT: ${next.title} / ${next.artist}` : 'NEXT: -';
+      renderPlaylist();
+    }
+
+    function renderPlaylist() {
+      playlistEl.innerHTML = tracks.map((track, i) => `
+        <div class="playlist-item ${i === currentIndex ? 'active' : ''}" data-index="${i}">
+          <strong>${escapeHtml(track.title)}</strong>
+          <span>${escapeHtml(track.artist)}</span>
+        </div>
+      `).join('');
+
+      playlistEl.querySelectorAll('.playlist-item').forEach(item => {
+        item.addEventListener('click', async () => {
+          const i = Number(item.dataset.index);
+          pausedAt = 0;
+          if (!audioContext) audioContext = new AudioContext();
+          await playTrack(i, 0);
+        });
+      });
+    }
+
+    function normalizeIndex(index) {
+      if (!tracks.length) return -1;
+      return (index + tracks.length) % tracks.length;
+    }
+
+    function formatTime(sec) {
+      if (!Number.isFinite(sec) || sec < 0) sec = 0;
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>'"]/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+      }[ch]));
+    }
+  </script>
+</body>
+</html>
