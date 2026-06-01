@@ -93,6 +93,23 @@
       box-shadow: 0 14px 36px rgba(0,0,0,0.35);
     }
 
+    .setup.minimized {
+      width: auto;
+      max-width: none;
+      padding: 10px;
+    }
+
+    .setup.minimized .setup-row,
+    .setup.minimized .mini-settings,
+    .setup.minimized .status,
+    .setup.minimized .hide-when-minimized {
+      display: none;
+    }
+
+    .setup.minimized .controls {
+      margin-top: 0;
+    }
+
     .setup-row {
       display: grid;
       grid-template-columns: 1fr;
@@ -414,6 +431,7 @@
           <button id="loopBtn" class="secondary" disabled>LOOP</button>
           <button id="fullscreenBtn" class="secondary">FULL</button>
           <button id="listBtn" class="secondary" disabled>SETLIST</button>
+          <button id="minimizeBtn" class="secondary">MIN</button>
         </div>
 
         <div class="status" id="status">
@@ -443,6 +461,7 @@
   <aside class="playlist" id="playlist"></aside>
 
   <script>
+    const setupPanel = document.querySelector('.setup');
     const videoInput = document.getElementById('videoInput');
     const musicInput = document.getElementById('musicInput');
     const videoName = document.getElementById('videoName');
@@ -454,6 +473,7 @@
     const loopBtn = document.getElementById('loopBtn');
     const fullscreenBtn = document.getElementById('fullscreenBtn');
     const listBtn = document.getElementById('listBtn');
+    const minimizeBtn = document.getElementById('minimizeBtn');
     const mixBars = document.getElementById('mixBars');
     const fallbackSeconds = document.getElementById('fallbackSeconds');
     const statusEl = document.getElementById('status');
@@ -559,6 +579,12 @@
 
     listBtn.addEventListener('click', () => playlistEl.classList.toggle('show'));
 
+    minimizeBtn.addEventListener('click', () => {
+      const minimized = setupPanel.classList.toggle('minimized');
+      minimizeBtn.textContent = minimized ? 'MENU' : 'MIN';
+      statusEl.textContent = minimized ? statusEl.textContent : '操作パネルを表示しました。';
+    });
+
     async function readTrack(file, index) {
       const basic = {
         file,
@@ -621,6 +647,7 @@
       const track = tracks[currentIndex];
       const buffer = await getBuffer(track);
       track.duration = buffer.duration;
+      releaseUnusedBuffers(currentIndex);
 
       currentSource = audioContext.createBufferSource();
       currentGain = audioContext.createGain();
@@ -734,6 +761,7 @@
       const mixSeconds = getMixSeconds(currentTrack);
       const nextTrack = tracks[nextIndex];
       const nextBuffer = await getBuffer(nextTrack);
+      releaseUnusedBuffers(currentIndex, nextIndex);
 
       nextSource = audioContext.createBufferSource();
       nextGain = audioContext.createGain();
@@ -899,6 +927,13 @@
       renderPlaylist();
       updateNextInfo();
       statusEl.textContent = 'セットリストを並び替えました。';
+    }
+
+    function releaseUnusedBuffers(...keepIndexes) {
+      const keep = new Set(keepIndexes.filter(i => i >= 0));
+      tracks.forEach((track, i) => {
+        if (!keep.has(i)) track.buffer = null;
+      });
     }
 
     function normalizeIndex(index) {
