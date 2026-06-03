@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DJ NORIKO PLAYER</title>
+  <title>DJ NORIKO PLAYER v2.6.2.1</title>
   <script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"></script>
   <style>
     :root {
@@ -12,9 +12,10 @@
     }
     *{box-sizing:border-box}
     body{margin:0;min-height:100vh;background:#050505;color:#fff;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow:hidden}
-    #bgVideo{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;background:#000;z-index:0}
-    .shade{position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(circle at center,rgba(0,0,0,.05),rgba(0,0,0,.78)),linear-gradient(to top,rgba(0,0,0,.78),rgba(0,0,0,.08) 48%,rgba(0,0,0,.45))}
-    .app{position:relative;z-index:2;min-height:100vh;padding:24px;display:flex;flex-direction:column;justify-content:space-between;gap:20px}
+    #bgVideo{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;background:#000;z-index:0;transform-origin:center center;will-change:transform,filter}
+    #vjCanvas{position:fixed;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;mix-blend-mode:screen;opacity:.92}
+    .shade{position:fixed;inset:0;z-index:2;pointer-events:none;background:radial-gradient(circle at center,rgba(0,0,0,.05),rgba(0,0,0,.78)),linear-gradient(to top,rgba(0,0,0,.78),rgba(0,0,0,.08) 48%,rgba(0,0,0,.45))}
+    .app{position:relative;z-index:3;min-height:100vh;padding:24px;display:flex;flex-direction:column;justify-content:space-between;gap:20px}
     .topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
     .brand .label{font-size:13px;letter-spacing:.28em;opacity:.82;text-shadow:0 3px 18px #000}
     .brand h1{margin:5px 0 0;font-size:clamp(26px,4vw,56px);line-height:.95;letter-spacing:.04em;color:var(--red);-webkit-text-stroke:1.2px #fff;text-shadow:0 3px 0 var(--red-dark),0 8px 20px #000}
@@ -42,29 +43,38 @@
     .eyebrow{font-weight:1000;letter-spacing:.18em;font-size:12px;opacity:.78;text-shadow:0 2px 8px #000}
     .titleWrap{overflow:hidden;white-space:nowrap}
     .title{display:inline-block;margin-top:2px;font-size:clamp(28px,4.2vw,54px);line-height:1;font-weight:1000;color:var(--red);-webkit-text-stroke:1.1px #fff;text-shadow:0 3px 0 var(--red-dark),0 8px 20px #000}
-    .title.playing{animation:marquee 13s linear infinite alternate}
-    @keyframes marquee{from{transform:translateX(0)}to{transform:translateX(min(0px, calc(100% - 80vw)))}}
+    .title.playing{padding-left:100%;animation:marqueeFlow 18s linear infinite}
+    @keyframes marqueeFlow{from{transform:translateX(0)}to{transform:translateX(-160%)}}
     .artist{margin-top:8px;font-size:clamp(18px,2.2vw,28px);font-weight:1000;text-shadow:0 3px 12px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .progress{margin-top:13px;display:grid;grid-template-columns:54px 1fr 54px;gap:10px;align-items:center;font-size:13px;font-weight:900;text-shadow:0 2px 8px #000}
     .bar{height:10px;background:rgba(255,255,255,.34);border-radius:999px;overflow:hidden;cursor:pointer}
     .fill{height:100%;width:0%;background:#fff;border-radius:999px}
     #waveCanvas{width:100%;height:70px;margin-top:10px;background:rgba(0,0,0,.32);border-radius:12px;display:block;cursor:pointer;border:1px solid rgba(255,255,255,.14)}
+    body.cleanMode #waveCanvas,
+    body.cleanMode .progress {display:none!important}
+    body.cleanMode .now{position:fixed;left:24px;right:24px;bottom:18px;z-index:5}
+    body.cleanMode .now{width:min(900px,calc(100vw - 48px));grid-template-columns:96px minmax(0,1fr);opacity:.86;padding:14px 18px}
+    body.cleanMode .art{width:96px;height:96px}
+    body.cleanMode .brand{opacity:.4}
+    body.cleanMode .shade{background:radial-gradient(circle at center,rgba(0,0,0,.02),rgba(0,0,0,.52)),linear-gradient(to top,rgba(0,0,0,.58),rgba(0,0,0,.02) 50%,rgba(0,0,0,.18))}
+
     .next{margin-top:10px;font-size:15px;font-weight:900;text-shadow:0 2px 8px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .playlist{position:fixed;right:24px;bottom:185px;z-index:3;width:min(520px,calc(100vw - 48px));max-height:48vh;overflow:auto;border-radius:20px;background:rgba(0,0,0,.62);border:1px solid rgba(255,255,255,.16);backdrop-filter:blur(12px);padding:10px;display:none}
+    .playlist{position:fixed;right:24px;top:170px;bottom:24px;z-index:4;width:min(520px,calc(100vw - 48px));overflow:auto;border-radius:20px;background:rgba(0,0,0,.62);border:1px solid rgba(255,255,255,.16);backdrop-filter:blur(12px);padding:10px;display:none}
     .playlist.show{display:block}
-    .plHead{display:flex;justify-content:space-between;gap:8px;padding:6px 4px 10px;font-size:12px;font-weight:1000;letter-spacing:.12em;opacity:.8}
+    .plHead{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 4px 10px;font-size:12px;font-weight:1000;letter-spacing:.12em;opacity:.9}
     .plItem{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:9px 10px;border-radius:13px;font-size:14px;line-height:1.32;border:1px solid transparent;margin-bottom:6px;background:rgba(255,255,255,.06);cursor:grab}
     .plItem.active{background:rgba(255,29,45,.28);border-color:rgba(255,255,255,.22)}
     .plItem strong{display:block}.plItem span{opacity:.72}
     .miniGrid{display:grid;grid-template-columns:88px 1fr 86px;gap:7px;margin-top:7px;align-items:center;font-size:12px}
     .itemActions{display:flex;gap:4px}.itemActions button{padding:6px 8px;font-size:12px;box-shadow:none;background:rgba(255,255,255,.14)}
     @media(max-width:780px){
-      body{overflow:auto}.app{min-height:100dvh;padding:15px}.topbar{flex-direction:column}.panel{width:100%}.settings{grid-template-columns:1fr}.now{width:100%;grid-template-columns:86px minmax(0,1fr);gap:14px;padding:14px}.art{width:86px;height:86px}.title{font-size:28px}.artist{font-size:17px}.playlist{right:15px;bottom:150px}
+      body{overflow:auto}.app{min-height:100dvh;padding:15px}.topbar{flex-direction:column}.panel{width:100%}.settings{grid-template-columns:1fr}.now{width:100%;grid-template-columns:86px minmax(0,1fr);gap:14px;padding:14px}.art{width:86px;height:86px}.title{font-size:28px}.artist{font-size:17px}.playlist{right:15px;top:150px;bottom:15px}
     }
   </style>
 </head>
 <body>
   <video id="bgVideo" src="videos/djnorikoloop.mp4" muted loop playsinline></video>
+  <canvas id="vjCanvas"></canvas>
   <div class="shade"></div>
 
   <main class="app">
@@ -119,12 +129,15 @@
             <button id="shuffleBtn" class="secondary" disabled>SHUFFLE</button>
             <button id="loopBtn" class="secondary active" disabled>LOOP</button>
             <button id="analyzeBtn" class="secondary" disabled>BPM ANALYZE</button>
+            <button id="autoCamBtn" class="secondary">AUTO CAM</button>
+            <button id="vjBtn" class="secondary active">VJ FX</button>
+            <button id="shakeBtn" class="secondary active">SHAKE</button>
             <button id="fullscreenBtn" class="secondary">FULL</button>
             <button id="listBtn" class="secondary" disabled>SETLIST</button>
           </div>
-          <div class="status" id="status">MP3フォルダを読み込んでください。NORIKO動画は videos フォルダから選択します。</div>
+          <div class="status" id="status">MP3フォルダを読み込んでください。NORIKO動画は videos フォルダから選択します。v2.6.2</div>
           <div class="status">
-            SHORTCUT: 1-4 動画切替 / A -10s / D +10s / W 前曲 / S 次曲 / M MENU / F FULL / ESC FULL解除
+            SHORTCUT: SPACE PLAY / 1-4 動画切替 / A -10s / D +10s / W 前曲 / S 次曲 / M MENU / TAB CLEAN / L VJ / K SHAKE / F FULL / ESC FULL解除
           </div>
         </div>
         <div class="controls">
@@ -154,30 +167,78 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const bgVideo=$('bgVideo'), panel=$('panel'), minBtn=$('minBtn'), musicInput=$('musicInput'), musicName=$('musicName');
-const playBtn=$('playBtn'), prevBtn=$('prevBtn'), nextBtn=$('nextBtn'), backBtn=$('backBtn'), forwardBtn=$('forwardBtn'), shuffleBtn=$('shuffleBtn'), loopBtn=$('loopBtn'), analyzeBtn=$('analyzeBtn'), fullscreenBtn=$('fullscreenBtn'), listBtn=$('listBtn');
+const bgVideo=$('bgVideo'), vjCanvas=$('vjCanvas'), panel=$('panel'), minBtn=$('minBtn'), musicInput=$('musicInput'), musicName=$('musicName');
+const playBtn=$('playBtn'), prevBtn=$('prevBtn'), nextBtn=$('nextBtn'), backBtn=$('backBtn'), forwardBtn=$('forwardBtn'), shuffleBtn=$('shuffleBtn'), loopBtn=$('loopBtn'), analyzeBtn=$('analyzeBtn'), autoCamBtn=$('autoCamBtn'), vjBtn=$('vjBtn'), shakeBtn=$('shakeBtn'), fullscreenBtn=$('fullscreenBtn'), listBtn=$('listBtn');
 const norikoVideoSelect=$('norikoVideoSelect'), playerTitleInput=$('playerTitleInput'), brandTitle=$('brandTitle'), defaultMixBars=$('defaultMixBars');
 const statusEl=$('status'), artworkEl=$('artwork'), eyebrowEl=$('eyebrow'), titleEl=$('title'), artistEl=$('artist'), currentTimeEl=$('currentTime'), durationEl=$('duration'), progressBar=$('progressBar'), progressFill=$('progressFill'), nextInfo=$('nextInfo'), playlistEl=$('playlist'), waveCanvas=$('waveCanvas');
 const wctx = waveCanvas.getContext('2d');
+const vctx = vjCanvas.getContext('2d');
 
 let tracks=[], currentIndex=-1, audioContext=null, currentSource=null, currentGain=null, nextSource=null, nextGain=null;
 let startedAt=0, pausedAt=0, isPlaying=false, rafId=null, crossfadeStarted=false, shuffleMode=false, loopMode=true, dragIndex=null, forceNoCrossfade=false;
 let playSessionId = 0;
 let crossfadeTimer = null;
+let analyser = null;
+let freqData = null;
+let vjEnabled = true;
+let shakeEnabled = true;
+let beatPulse = 0;
+let bassEnergy = 0;
+let midEnergy = 0;
+let lastBeatAt = 0;
+let vjPhase = 0;
+let vjMode = 0;
+let nextVjSwitchAt = performance.now() + 38000;
+let bassHistory = [];
 let focusables=[];
 let focusPos=0;
+let cleanMode=false;
+let autoCamMode=true;
+let autoCamTimer=null;
+let lastManualCamAt=0;
+const autoCamSequence=[0,1,2,0,3,1];
+let autoCamStep=0;
 
 const defaultSvg=encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#190004"/><stop offset="1" stop-color="#8c0010"/></linearGradient></defs><rect width="600" height="600" fill="url(#g)"/><circle cx="300" cy="260" r="128" fill="none" stroke="#fff" stroke-width="12" opacity=".8"/><rect x="190" y="330" width="220" height="38" rx="19" fill="#fff" opacity=".85"/><text x="300" y="455" font-size="42" text-anchor="middle" font-family="Arial" fill="#fff" font-weight="900">DJ NORIKO</text></svg>`);
 artworkEl.src=`data:image/svg+xml;charset=utf-8,${defaultSvg}`;
 bgVideo.play().catch(()=>{});
 
 norikoVideoSelect.addEventListener('change',()=>{ bgVideo.src=norikoVideoSelect.value; bgVideo.play().catch(()=>{}); });
+defaultMixBars.addEventListener('change',()=>{
+  tracks.forEach(t=>{ t.mixBars = defaultMixBars.value; });
+  renderPlaylist();
+  updateNextInfo();
+  statusEl.textContent = `デフォルトMIXを ${defaultMixBars.value === '0' ? '繋がない' : defaultMixBars.value + '小節'} に反映しました。`;
+});
 playerTitleInput.addEventListener('input',()=>{ brandTitle.textContent=playerTitleInput.value || 'DJ NORIKO'; });
 minBtn.addEventListener('click',()=>toggleMenu());
 listBtn.addEventListener('click',()=>playlistEl.classList.toggle('show'));
 fullscreenBtn.addEventListener('click',async()=>toggleFullscreen());
 shuffleBtn.addEventListener('click',()=>{shuffleMode=!shuffleMode;shuffleBtn.classList.toggle('active',shuffleMode);updateNextInfo();});
 loopBtn.addEventListener('click',()=>{loopMode=!loopMode;loopBtn.classList.toggle('active',loopMode);updateNextInfo();});
+
+autoCamBtn.classList.toggle('active', autoCamMode);
+autoCamBtn.addEventListener('click',()=>{
+  autoCamMode=!autoCamMode;
+  autoCamBtn.classList.toggle('active',autoCamMode);
+  if(autoCamMode) startAutoCam(); else stopAutoCam();
+  statusEl.textContent = autoCamMode ? 'AUTO CAM ON。配信中にNORIKO動画を控えめに自動切替します。' : 'AUTO CAM OFF。1〜4の手動切替のみです。';
+});
+startAutoCam();
+
+vjBtn.addEventListener('click',()=>{
+  vjEnabled=!vjEnabled;
+  vjBtn.classList.toggle('active',vjEnabled);
+  if(!vjEnabled) clearVj();
+  statusEl.textContent = vjEnabled ? 'VJ FX ON。少し強めのクラブ照明効果を重ねます。' : 'VJ FX OFF。';
+});
+
+shakeBtn.addEventListener('click',()=>{
+  shakeEnabled=!shakeEnabled;
+  shakeBtn.classList.toggle('active',shakeEnabled);
+  if(!shakeEnabled) bgVideo.style.transform='scale(1)';
+  statusEl.textContent = shakeEnabled ? 'SHAKE ON。低音に合わせて控えめに映像が揺れます。' : 'SHAKE OFF。';
+});
 
 musicInput.addEventListener('change', async()=>{
   const files=Array.from(musicInput.files||[]).filter(f=>f.type.includes('audio')||f.name.toLowerCase().endsWith('.mp3'));
@@ -194,7 +255,7 @@ musicInput.addEventListener('change', async()=>{
 });
 
 async function readTrack(file){
-  const basic={file,path:file.webkitRelativePath||file.name,title:file.name.replace(/\.mp3$/i,''),artist:'Unknown Artist',artwork:`data:image/svg+xml;charset=utf-8,${defaultSvg}`,duration:0,buffer:null,bpm:'',mixBars:'2',wave:null};
+  const basic={file,path:file.webkitRelativePath||file.name,title:file.name.replace(/\.mp3$/i,''),artist:'Unknown Artist',artwork:`data:image/svg+xml;charset=utf-8,${defaultSvg}`,duration:0,buffer:null,bpm:'',mixBars:(defaultMixBars ? defaultMixBars.value : '2'),wave:null};
   await new Promise(resolve=>{
     window.jsmediatags.read(file,{
       onSuccess:tag=>{
@@ -214,7 +275,17 @@ async function readTrack(file){
   return basic;
 }
 function updateReadyState(){const r=tracks.length>0; [playBtn,prevBtn,nextBtn,backBtn,forwardBtn,shuffleBtn,loopBtn,analyzeBtn,listBtn].forEach(b=>b.disabled=!r);}
-async function ensureAudio(){ if(!audioContext) audioContext=new AudioContext(); if(audioContext.state==='suspended') await audioContext.resume(); }
+async function ensureAudio(){
+  if(!audioContext) audioContext=new AudioContext();
+  if(!analyser){
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0.82;
+    freqData = new Uint8Array(analyser.frequencyBinCount);
+    analyser.connect(audioContext.destination);
+  }
+  if(audioContext.state==='suspended') await audioContext.resume();
+}
 async function getBuffer(track){ if(track.buffer)return track.buffer; const ab=await track.file.arrayBuffer(); track.buffer=await audioContext.decodeAudioData(ab.slice(0)); track.duration=track.buffer.duration; if(!track.wave) track.wave=makeWaveData(track.buffer, 900); return track.buffer; }
 function releaseUnusedBuffers(...keep){ const s=new Set(keep.filter(i=>i>=0)); tracks.forEach((t,i)=>{ if(!s.has(i)) t.buffer=null; }); }
 
@@ -239,13 +310,13 @@ async function playTrack(index, offset=0){
   currentSource=audioContext.createBufferSource();
   currentGain=audioContext.createGain();
   currentSource.buffer=buffer; currentGain.gain.value=1;
-  currentSource.connect(currentGain).connect(audioContext.destination);
+  currentSource.connect(currentGain).connect(analyser || audioContext.destination);
   startedAt=audioContext.currentTime-offset; pausedAt=offset; isPlaying=true; crossfadeStarted=false; forceNoCrossfade=false;
   currentSource.start(0,offset);
   currentSource.onended=()=>{ if(session===playSessionId && isPlaying&&!crossfadeStarted) skipToNext(false); };
   playBtn.textContent='PAUSE'; titleEl.classList.add('playing'); updateNowInfo(currentIndex); tick();
 }
-function pauseCurrent(){ if(!isPlaying)return; pausedAt=Math.max(0,audioContext.currentTime-startedAt); stopSources(false); isPlaying=false; playBtn.textContent='PLAY'; titleEl.classList.remove('playing'); cancelAnimationFrame(rafId); }
+function pauseCurrent(){ if(!isPlaying)return; pausedAt=Math.max(0,audioContext.currentTime-startedAt); stopSources(false); isPlaying=false; playBtn.textContent='PLAY'; titleEl.classList.remove('playing'); clearVj(); cancelAnimationFrame(rafId); }
 function stopSources(resetPause=true){
   if (crossfadeTimer) {
     clearTimeout(crossfadeTimer);
@@ -276,7 +347,7 @@ async function skipToPrev(manual){
   await playTrack(pi,0);
   if(manual)statusEl.textContent='前の曲へ戻りました。';
 }
-function stopAtEnd(){stopSources();isPlaying=false;playBtn.textContent='PLAY';titleEl.classList.remove('playing');eyebrowEl.textContent='PLAYBACK ENDED';statusEl.textContent='セットリストの最後まで再生しました。';}
+function stopAtEnd(){stopSources();isPlaying=false;playBtn.textContent='PLAY';titleEl.classList.remove('playing');eyebrowEl.textContent='PLAYBACK ENDED';clearVj();statusEl.textContent='セットリストの最後まで再生しました。';}
 function getNextIndex(){
   if(!tracks.length)return-1; if(tracks.length===1)return loopMode?currentIndex:-1;
   if(shuffleMode){let c=currentIndex,g=0;while(c===currentIndex&&g<20){c=Math.floor(Math.random()*tracks.length);g++;}return c;}
@@ -300,7 +371,7 @@ async function startCrossfade(){
   releaseUnusedBuffers(currentIndex,ni);
   nextSource=audioContext.createBufferSource(); nextGain=audioContext.createGain();
   nextSource.buffer=nextBuffer; nextGain.gain.setValueAtTime(0,audioContext.currentTime);
-  nextSource.connect(nextGain).connect(audioContext.destination);
+  nextSource.connect(nextGain).connect(analyser || audioContext.destination);
   const now=audioContext.currentTime;
   currentGain.gain.cancelScheduledValues(now);
   currentGain.gain.setValueAtTime(currentGain.gain.value,now);
@@ -328,6 +399,7 @@ function tick(){
   currentTimeEl.textContent=formatTime(el); durationEl.textContent=formatTime(dur);
   progressFill.style.width=dur?`${Math.min(100,el/dur*100)}%`:'0%';
   drawWave(t, el);
+  drawVjLights();
   if(dur&&mix>0&&rem<=mix&&rem>.2&&!crossfadeStarted)startCrossfade();
   rafId=requestAnimationFrame(tick);
 }
@@ -344,7 +416,7 @@ function updateNowInfo(i){
 function updateNextInfo(){const ni=getNextIndex(), n=tracks[ni]; nextInfo.textContent=n?`NEXT: ${n.title} / ${n.artist}`:'NEXT: -';}
 
 function renderPlaylist(){
-  playlistEl.innerHTML=`<div class="plHead"><span>SETLIST EDIT</span><span>ドラッグ / BPM / MIX</span></div>`+tracks.map((t,i)=>`
+  playlistEl.innerHTML=`<div class="plHead"><span>SETLIST EDIT</span><span>ドラッグ / BPM / MIX</span><button id="closeSetlistBtn" class="secondary" style="padding:5px 9px;font-size:11px">CLOSE</button></div>`+tracks.map((t,i)=>`
     <div class="plItem ${i===currentIndex?'active':''}" draggable="true" data-index="${i}">
       <div>
         <strong>${esc(String(i+1).padStart(2,'0'))}. ${esc(t.title)}</strong><span>${esc(t.artist)}</span>
@@ -361,6 +433,8 @@ function renderPlaylist(){
       </div>
       <div class="itemActions"><button data-up="${i}">↑</button><button data-down="${i}">↓</button></div>
     </div>`).join('');
+  const closeSetlistBtn = document.getElementById('closeSetlistBtn');
+  if(closeSetlistBtn) closeSetlistBtn.addEventListener('click',()=>playlistEl.classList.remove('show'));
   playlistEl.querySelectorAll('[data-bpm]').forEach(inp=>inp.addEventListener('change',()=>{tracks[Number(inp.dataset.bpm)].bpm=inp.value;updateNextInfo();}));
   playlistEl.querySelectorAll('[data-mix]').forEach(sel=>sel.addEventListener('change',()=>{tracks[Number(sel.dataset.mix)].mixBars=sel.value;updateNextInfo();}));
   playlistEl.querySelectorAll('[data-up]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();moveTrack(Number(b.dataset.up),-1);}));
@@ -435,12 +509,13 @@ function drawWave(track, elapsed=0){
   }
 }
 
-function setNorikoVideoByNumber(num){
+function setNorikoVideoByNumber(num, isAuto=false){
   const idx = Number(num) - 1;
   if(idx < 0 || idx >= norikoVideoSelect.options.length) return;
   norikoVideoSelect.selectedIndex = idx;
   bgVideo.src = norikoVideoSelect.value;
   bgVideo.play().catch(()=>{});
+  if(!isAuto) lastManualCamAt = Date.now();
   statusEl.textContent = `NORIKO動画 ${num}: ${norikoVideoSelect.options[idx].textContent} に切り替えました。`;
 }
 async function toggleFullscreen(){
@@ -450,6 +525,7 @@ async function toggleFullscreen(){
 function toggleMenu(){
   const m=panel.classList.toggle('min');
   minBtn.textContent=m?'MENU':'MIN';
+  if(m) playlistEl.classList.remove('show');
 }
 function refreshFocusables(){
   focusables = Array.from(panel.querySelectorAll('button:not(:disabled), select:not(:disabled), input:not([type="file"]):not(:disabled)'))
@@ -481,6 +557,33 @@ async function activateKeyboardFocus(){
   if(el.tagName === 'SELECT') el.size = el.size ? 0 : Math.min(6, el.options.length);
   if(el.tagName === 'INPUT') el.select();
 }
+
+function toggleCleanMode(){
+  cleanMode = !cleanMode;
+  document.body.classList.toggle('cleanMode', cleanMode);
+  statusEl.textContent = cleanMode
+    ? 'CLEAN MODE ON。配信向けに画面下表示のみへ簡略化しました。'
+    : 'CLEAN MODE OFF。通常表示へ戻しました。';
+}
+function startAutoCam(){
+  stopAutoCam();
+  if(!autoCamMode) return;
+  autoCamTimer = setInterval(()=>{
+    if(!autoCamMode || !isPlaying) return;
+    if(Date.now() - lastManualCamAt < 14000) return;
+    if(norikoVideoSelect.options.length < 2) return;
+    autoCamStep = (autoCamStep + 1) % autoCamSequence.length;
+    const idx = autoCamSequence[autoCamStep] % norikoVideoSelect.options.length;
+    setNorikoVideoByNumber(String(idx + 1), true);
+  }, 22000);
+}
+function stopAutoCam(){
+  if(autoCamTimer){
+    clearInterval(autoCamTimer);
+    autoCamTimer=null;
+  }
+}
+
 document.addEventListener('keydown', async (e)=>{
   const tag = (document.activeElement && document.activeElement.tagName) || '';
   const editing = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
@@ -488,12 +591,16 @@ document.addEventListener('keydown', async (e)=>{
 
   const key = e.key.toLowerCase();
 
+  if(e.code==='Space'){ e.preventDefault(); playBtn.click(); return; }
+  if(e.key==='Tab'){ e.preventDefault(); toggleCleanMode(); return; }
   if(['1','2','3','4'].includes(e.key)){ e.preventDefault(); setNorikoVideoByNumber(e.key); return; }
   if(key==='a'){ e.preventDefault(); await seekRelative(-10); return; }
   if(key==='d'){ e.preventDefault(); await seekRelative(10); return; }
   if(key==='w'){ e.preventDefault(); if(tracks.length){ await ensureAudio(); forceNoCrossfade=true; await skipToPrev(true); } return; }
   if(key==='s'){ e.preventDefault(); if(tracks.length){ await ensureAudio(); forceNoCrossfade=true; await skipToNext(true); } return; }
   if(key==='m'){ e.preventDefault(); toggleMenu(); return; }
+  if(key==='l'){ e.preventDefault(); vjBtn.click(); return; }
+  if(key==='k'){ e.preventDefault(); shakeBtn.click(); return; }
   if(key==='f'){ e.preventDefault(); await toggleFullscreen(); return; }
   if(e.key==='Escape'){ if(document.fullscreenElement){ e.preventDefault(); await document.exitFullscreen().catch(()=>{}); } return; }
 
@@ -501,6 +608,286 @@ document.addEventListener('keydown', async (e)=>{
   if(e.key==='ArrowLeft' || e.key==='ArrowUp'){ e.preventDefault(); moveKeyboardFocus(-1); return; }
   if(e.key==='Enter'){ e.preventDefault(); await activateKeyboardFocus(); return; }
 });
+
+
+function resizeVjCanvas(){
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.floor(window.innerWidth * dpr);
+  const h = Math.floor(window.innerHeight * dpr);
+  if(vjCanvas.width !== w || vjCanvas.height !== h){
+    vjCanvas.width = w;
+    vjCanvas.height = h;
+  }
+}
+window.addEventListener('resize', resizeVjCanvas);
+resizeVjCanvas();
+
+
+function updateAudioEnergy(){
+  if(!analyser || !freqData || !isPlaying){
+    bassEnergy *= .88;
+    midEnergy *= .9;
+    beatPulse *= .86;
+    return;
+  }
+
+  analyser.getByteFrequencyData(freqData);
+
+  let bass=0, mid=0;
+  const bassBins = Math.min(12, freqData.length);
+  const midStart = 14;
+  const midEnd = Math.min(70, freqData.length);
+
+  for(let i=1;i<bassBins;i++) bass += freqData[i];
+  bass = bass / Math.max(1, bassBins-1) / 255;
+
+  for(let i=midStart;i<midEnd;i++) mid += freqData[i];
+  mid = mid / Math.max(1, midEnd-midStart) / 255;
+
+  bassEnergy = bassEnergy * .72 + bass * .28;
+  midEnergy = midEnergy * .78 + mid * .22;
+
+  // 過去平均との差分を見る。「常時ドンドン」ではなく、アクセントだけ強く反応。
+  bassHistory.push(bassEnergy);
+  if(bassHistory.length > 90) bassHistory.shift();
+
+  let avg = 0;
+  for(const v of bassHistory) avg += v;
+  avg /= Math.max(1, bassHistory.length);
+
+  const accent = Math.max(0, bassEnergy - avg);
+
+  const now = performance.now();
+  const beatGap = getCurrentBeatGapMs();
+
+  const threshold = .055;
+  const minGap = beatGap ? beatGap * .62 : 260;
+
+  if(accent > threshold && now - lastBeatAt > minGap){
+    beatPulse = Math.min(1, accent * 7.5 + bassEnergy * .35);
+    lastBeatAt = now;
+  } else {
+    beatPulse *= .84;
+  }
+}
+
+function getCurrentBeatGapMs(){
+  const t = tracks[currentIndex];
+  const bpm = Number(t && t.bpm);
+  if(!bpm || bpm < 40 || bpm > 240) return null;
+  return 60000 / bpm;
+}
+
+function applyVideoShake(){
+  if(!shakeEnabled || !isPlaying){
+    bgVideo.style.transform = 'scale(1)';
+    bgVideo.style.filter = '';
+    return;
+  }
+
+  const intensity = Math.min(1, beatPulse * 1.1);
+  if(intensity < .05){
+    bgVideo.style.transform = 'scale(1)';
+    bgVideo.style.filter = '';
+    return;
+  }
+
+  const t = performance.now() / 1000;
+  const scale = 1 + intensity * 0.012;
+  const x = Math.sin(t * 92) * intensity * 1.6;
+  const y = Math.cos(t * 77) * intensity * 1.2;
+  bgVideo.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+  bgVideo.style.filter = `brightness(${1 + intensity * .06}) contrast(${1 + intensity * .045})`;
+}
+
+
+function drawLaserMode(w,h,amp){
+  const laserAlpha = Math.min(.72, .16 + amp*.36 + beatPulse*.30);
+  vctx.save();
+  vctx.globalCompositeOperation = 'lighter';
+  vctx.lineWidth = Math.max(1, w * 0.0022);
+
+  for(let i=0;i<7;i++){
+    const offset = (vjPhase*220 + i*w*.19) % (w*1.4) - w*.2;
+    vctx.strokeStyle = i%2 ? `rgba(0,220,255,${laserAlpha})` : `rgba(255,30,80,${laserAlpha})`;
+    vctx.beginPath();
+    vctx.moveTo(offset, h*.12 + Math.sin(vjPhase+i)*h*.06);
+    vctx.lineTo(offset + w*.42, h*.82 + Math.cos(vjPhase+i)*h*.08);
+    vctx.stroke();
+  }
+  vctx.restore();
+}
+
+function drawSpotlightMode(w,h,amp){
+  // 大きめの丸いカラースポットが下から上へ流れる演出。
+  // 画面全体に乗せるので、存在感をかなり強めに。
+  vctx.save();
+  vctx.globalCompositeOperation = 'lighter';
+
+  const colors = [
+    [255,40,90],
+    [0,180,255],
+    [185,75,255],
+    [255,210,70]
+  ];
+
+  for(let i=0;i<7;i++){
+    const phase = (vjPhase*.22 + i*.74);
+    const x = (Math.sin(phase*1.3) * .44 + .5) * w;
+    const rise = (phase*0.085 + i*.137) % 1;
+    const y = h * (1.18 - rise * 1.42);
+    const radius = (0.22 + amp*.12 + (i%3)*.028) * Math.max(w,h);
+    const [r,g,b] = colors[i%colors.length];
+    const alpha = 0.20 + amp*.24 + beatPulse*.12;
+
+    const grad = vctx.createRadialGradient(x,y,0,x,y,radius);
+    grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
+    grad.addColorStop(.32, `rgba(${r},${g},${b},${alpha*.45})`);
+    grad.addColorStop(.72, `rgba(${r},${g},${b},${alpha*.12})`);
+    grad.addColorStop(1,'rgba(0,0,0,0)');
+    vctx.fillStyle = grad;
+    vctx.beginPath();
+    vctx.arc(x,y,radius,0,Math.PI*2);
+    vctx.fill();
+  }
+
+  // フロア照明っぽい下部の色溜まり
+  const floor = vctx.createLinearGradient(0,h*.62,0,h);
+  floor.addColorStop(0,'rgba(0,0,0,0)');
+  floor.addColorStop(.55,`rgba(255,40,100,${.08+amp*.12})`);
+  floor.addColorStop(1,`rgba(0,160,255,${.10+amp*.16})`);
+  vctx.fillStyle = floor;
+  vctx.fillRect(0,0,w,h);
+
+  vctx.restore();
+}
+
+function drawAmbientMode(w,h,amp){
+  // 静かな場面でも「照明がいる」と分かる、ゆっくり漂う色面。
+  vctx.save();
+  vctx.globalCompositeOperation = 'lighter';
+
+  const cx1 = (Math.sin(vjPhase*.5)*.35+.5)*w;
+  const cy1 = (Math.cos(vjPhase*.35)*.25+.45)*h;
+  const cx2 = (Math.cos(vjPhase*.42)*.35+.5)*w;
+  const cy2 = (Math.sin(vjPhase*.31)*.25+.5)*h;
+
+  const g1 = vctx.createRadialGradient(cx1,cy1,0,cx1,cy1,Math.max(w,h)*.58);
+  g1.addColorStop(0, `rgba(255,40,105,${.12+amp*.12})`);
+  g1.addColorStop(.55, `rgba(140,70,255,${.06+amp*.08})`);
+  g1.addColorStop(1, 'rgba(0,0,0,0)');
+  vctx.fillStyle = g1;
+  vctx.fillRect(0,0,w,h);
+
+  const g2 = vctx.createRadialGradient(cx2,cy2,0,cx2,cy2,Math.max(w,h)*.52);
+  g2.addColorStop(0, `rgba(0,190,255,${.10+amp*.10})`);
+  g2.addColorStop(.58, `rgba(0,90,255,${.05+amp*.07})`);
+  g2.addColorStop(1, 'rgba(0,0,0,0)');
+  vctx.fillStyle = g2;
+  vctx.fillRect(0,0,w,h);
+
+  vctx.restore();
+}
+
+function drawStrobeMode(w,h,amp){
+  // チラつきだけでなく、白いライトバーが走る演出。
+  vctx.save();
+  vctx.globalCompositeOperation = 'lighter';
+
+  const sweepX = ((vjPhase*180) % (w*1.4)) - w*.2;
+  const barWidth = w*(.10 + amp*.06);
+  const grad = vctx.createLinearGradient(sweepX,0,sweepX+barWidth,0);
+  grad.addColorStop(0,'rgba(255,255,255,0)');
+  grad.addColorStop(.5,`rgba(255,255,255,${.16+amp*.22})`);
+  grad.addColorStop(1,'rgba(255,255,255,0)');
+  vctx.fillStyle = grad;
+  vctx.fillRect(sweepX,0,barWidth,h);
+
+  if(beatPulse > .15){
+    vctx.fillStyle = `rgba(255,255,255,${Math.min(.30,beatPulse*.26)})`;
+    vctx.fillRect(0,0,w,h);
+  }
+
+  // 横方向の薄い光線
+  vctx.strokeStyle = `rgba(0,220,255,${.12+amp*.18})`;
+  vctx.lineWidth = Math.max(1,w*.002);
+  for(let i=0;i<5;i++){
+    const y = h*(.18+i*.15) + Math.sin(vjPhase+i)*h*.03;
+    vctx.beginPath();
+    vctx.moveTo(0,y);
+    vctx.lineTo(w,y + Math.cos(vjPhase+i)*h*.04);
+    vctx.stroke();
+  }
+
+  vctx.restore();
+}
+
+function drawMirrorDots(w,h,amp){
+  // v2.6.2: 小さい飛び光は邪魔になりやすいため無効化。
+  // 淡い大きな光だけを残す方針。
+  return;
+}
+
+function drawVjLights(){
+  resizeVjCanvas();
+  updateAudioEnergy();
+  applyVideoShake();
+
+  const w = vjCanvas.width;
+  const h = vjCanvas.height;
+
+  vctx.clearRect(0,0,w,h);
+
+  if(!vjEnabled || !isPlaying) return;
+
+  const quietGate = Math.max(0, (bassEnergy + midEnergy) - .18);
+  const amp = Math.min(1, quietGate * 2.25 + beatPulse * .95);
+
+  if(amp < .018) return;
+
+  vjPhase += 0.014 + amp * .016;
+
+  // 長いスパンで照明モード変更
+  const now = performance.now();
+  if(now > nextVjSwitchAt){
+    vjMode = (vjMode + 1) % 4;
+    nextVjSwitchAt = now + 32000 + Math.random() * 24000;
+  }
+
+  // ベースフラッシュ
+  if(beatPulse > .1){
+    const flash = beatPulse * .16;
+    const grad = vctx.createRadialGradient(w*.5,h*.48,0,w*.5,h*.48,Math.max(w,h)*.7);
+    grad.addColorStop(0, `rgba(255,255,255,${flash})`);
+    grad.addColorStop(.35, `rgba(255,30,60,${flash*.6})`);
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    vctx.fillStyle = grad;
+    vctx.fillRect(0,0,w,h);
+  }
+
+  switch(vjMode){
+    case 0:
+      drawLaserMode(w,h,amp);
+      break;
+    case 1:
+      drawSpotlightMode(w,h,amp);
+      break;
+    case 2:
+      drawAmbientMode(w,h,amp);
+      break;
+    case 3:
+      drawStrobeMode(w,h,amp);
+      break;
+  }
+
+  drawMirrorDots(w,h,amp);
+}
+
+function clearVj(){
+  vctx.clearRect(0,0,vjCanvas.width,vjCanvas.height);
+  bgVideo.style.transform='scale(1)';
+  bgVideo.style.filter='';
+}
 
 function normalizeIndex(i){return tracks.length?(i+tracks.length)%tracks.length:-1;}
 function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
